@@ -241,6 +241,13 @@ enum Command {
         /// Name of the repository used during template generation
         #[arg(long, requires_all = ["owner", "remote"])]
         repository: Option<String>,
+
+        /// Combine package and global changes into one changelog
+        ///
+        /// Note that the `monorepo_*` templates cannot be used with
+        /// this option
+        #[arg(short, long)]
+        combined: bool,
     },
 
     /// Get current version
@@ -630,6 +637,7 @@ fn main() -> Result<()> {
             remote,
             owner,
             repository,
+            combined,
         } => {
             let cocogitto = CocoGitto::get()?;
 
@@ -647,7 +655,7 @@ fn main() -> Result<()> {
             let result = match at {
                 Some(at) => cocogitto.get_changelog_at_tag(&at, template)?,
                 None => {
-                    if !SETTINGS.packages.is_empty() {
+                    if !combined && !SETTINGS.packages.is_empty() {
                         cocogitto.get_monorepo_changelog(pattern, template)?
                     } else {
                         let changelog = cocogitto.get_changelog(pattern, true)?;
