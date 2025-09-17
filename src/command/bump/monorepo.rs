@@ -39,18 +39,19 @@ pub struct PackageData {
 
 impl CocoGitto {
     pub fn create_monorepo_version(&mut self, opts: BumpOptions) -> Result<()> {
-        match opts.increment {
-            IncrementCommand::Auto => {
-                if SETTINGS.generate_mono_repository_global_tag {
-                    self.create_monorepo_version_auto(opts)
-                } else {
-                    if opts.annotated.is_some() {
-                        warn!("--annotated flag is not supported for package bumps without a global tag");
-                    }
-                    self.create_all_package_version_auto(opts)
+        if opts.increment == IncrementCommand::Auto || opts.all_packages {
+            if SETTINGS.generate_mono_repository_global_tag {
+                self.create_monorepo_version_auto(opts)
+            } else {
+                if opts.annotated.is_some() {
+                    warn!(
+                        "--annotated flag is not supported for package bumps without a global tag"
+                    );
                 }
+                self.create_all_package_version_auto(opts)
             }
-            _ => self.create_monorepo_version_manual(opts),
+        } else {
+            self.create_monorepo_version_manual(opts)
         }
     }
 
@@ -133,7 +134,9 @@ impl CocoGitto {
             return Ok(());
         }
 
-        let increment = if SETTINGS.generate_mono_repository_package_tags {
+        let increment = if opts.increment != IncrementCommand::Auto {
+            opts.increment.clone()
+        } else if SETTINGS.generate_mono_repository_package_tags {
             // Get the greatest package increment among public api packages
             IncrementCommand::AutoMonoRepoGlobal(
                 bumps

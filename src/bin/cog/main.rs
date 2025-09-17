@@ -323,6 +323,13 @@ enum Command {
         /// Disable the creation of the bump commit
         #[arg(long = "disable-bump-commit")]
         disable_bump_commit: bool,
+
+        /// Also bump packages on manual bump
+        ///
+        /// Overrides the default behaviour for --patch, --minor, --major and --version to only
+        /// bump the global version for monorepos. Useful to bump to version 1.0.0.
+        #[arg(long)]
+        all_packages: bool,
     },
 
     /// Install cog config files
@@ -445,6 +452,7 @@ fn main() -> Result<()> {
             skip_ci_override,
             skip_untracked,
             disable_bump_commit,
+            all_packages,
         } => {
             let mut cocogitto = CocoGitto::get()?;
             let is_monorepo = !SETTINGS.packages.is_empty();
@@ -502,6 +510,7 @@ fn main() -> Result<()> {
                             skip_ci_override,
                             skip_untracked,
                             disable_bump_commit,
+                            all_packages,
                         };
 
                         cocogitto.create_monorepo_version(opts)?
@@ -519,6 +528,7 @@ fn main() -> Result<()> {
                     skip_ci_override,
                     skip_untracked,
                     disable_bump_commit,
+                    all_packages,
                 };
                 cocogitto.create_version(opts)?
             }
