@@ -1200,3 +1200,98 @@ fn auto_bump_conflicts_with_include_packages() -> Result<()> {
 
     Ok(())
 }
+
+#[sealed_test]
+fn no_bump_with_only_global_changes() -> Result<()> {
+    // Arrange
+    git_init()?;
+    git_add(
+        indoc! {
+            r#"
+            monorepo_allow_global_only = false
+
+            [packages.pkg]
+            path = "pkg"
+            "#
+        },
+        "cog.toml",
+    )?;
+    git_commit("feat: init")?;
+
+    // Act
+    Command::cargo_bin("cog")?
+        .arg("bump")
+        .arg("--auto")
+        // Assert
+        .assert()
+        .success()
+        .stdout("No conventional commits found for your packages that required a bump. Changelogs will be updated on the next bump.\nPre-Hooks and Post-Hooks have been skipped.\n\n");
+
+    assert_tag_does_not_exist("0.1.0")?;
+    assert_tag_does_not_exist("pkg-0.1.0")?;
+
+    Ok(())
+}
+
+#[sealed_test]
+fn bump_with_only_global_changes_if_allowed() -> Result<()> {
+    // Arrange
+    git_init()?;
+    git_add(
+        indoc! {
+            r#"
+            monorepo_allow_global_only = true
+
+            [packages.pkg]
+            path = "pkg"
+            "#
+        },
+        "cog.toml",
+    )?;
+    git_commit("feat: init")?;
+
+    // Act
+    Command::cargo_bin("cog")?
+        .arg("bump")
+        .arg("--auto")
+        // Assert
+        .assert()
+        .success();
+
+    assert_tag_exists("0.1.0")?;
+    assert_tag_does_not_exist("pkg-0.1.0")?;
+
+    Ok(())
+}
+
+#[sealed_test]
+fn no_bump_with_only_chore_monorepo() -> Result<()> {
+    // Arrange
+    git_init()?;
+    git_add(
+        indoc! {
+            r#"
+            monorepo_allow_global_only = true
+
+            [packages.pkg]
+            path = "pkg"
+            "#
+        },
+        "cog.toml",
+    )?;
+    git_commit("chore: init")?;
+
+    // Act
+    Command::cargo_bin("cog")?
+        .arg("bump")
+        .arg("--auto")
+        // Assert
+        .assert()
+        .success()
+        .stdout("No conventional commits found that required a bump. Changelogs will be updated on the next bump.\nPre-Hooks and Post-Hooks have been skipped.\n\n");
+
+    assert_tag_does_not_exist("0.1.0")?;
+    assert_tag_does_not_exist("pkg-0.1.0")?;
+
+    Ok(())
+}

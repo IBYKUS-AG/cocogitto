@@ -129,7 +129,7 @@ impl CocoGitto {
         self.pre_bump_checks(opts.skip_untracked)?;
         // Get package bumps
         let bumps = self.get_packages_bumps(&opts)?;
-        if bumps.is_empty() {
+        if bumps.is_empty() && !SETTINGS.monorepo_allow_global_only {
             print!("No conventional commits found for your packages that required a bump. Changelogs will be updated on the next bump.\nPre-Hooks and Post-Hooks have been skipped.\n");
             return Ok(());
         }
@@ -151,6 +151,10 @@ impl CocoGitto {
         };
 
         let bump_res = opts.get_new_version(&self.repository, None, false, Some(increment))?;
+        if bumps.is_empty() && bump_res.no_change() {
+            print!("No conventional commits found that required a bump. Changelogs will be updated on the next bump.\nPre-Hooks and Post-Hooks have been skipped.\n");
+            return Ok(());
+        }
 
         let tag = Tag::create(bump_res.next.version, None);
 

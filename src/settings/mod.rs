@@ -72,6 +72,8 @@ pub struct Settings {
     pub generate_mono_repository_package_tags: bool,
     /// Specify the version separator character for mono-repository package's tags.
     pub monorepo_version_separator: Option<String>,
+    /// Allow versions bumps with only global changes in monorepos.
+    pub monorepo_allow_global_only: bool,
     /// A list of glob patterns to allow bumping only on matching branches.
     pub branch_whitelist: Vec<String>,
     /// Set a tag prefix value for cocogitto. For instance if you have a `v`
@@ -118,6 +120,7 @@ impl Default for Settings {
             generate_mono_repository_global_tag: true,
             generate_mono_repository_package_tags: true,
             monorepo_version_separator: None,
+            monorepo_allow_global_only: false,
             branch_whitelist: vec![],
             tag_prefix: None,
             skip_ci: "[skip ci]".to_string(),
