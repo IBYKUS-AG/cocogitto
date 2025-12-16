@@ -373,6 +373,8 @@ pub struct Changelog {
     pub repository: Option<String>,
     /// Author mappings for changelog generation
     pub authors: AuthorSettings,
+    /// Omit version commits from changelogs
+    pub omit_version_commit: bool,
 }
 
 impl Default for Changelog {
@@ -385,6 +387,7 @@ impl Default for Changelog {
             owner: None,
             repository: None,
             authors: vec![],
+            omit_version_commit: false,
         }
     }
 }
