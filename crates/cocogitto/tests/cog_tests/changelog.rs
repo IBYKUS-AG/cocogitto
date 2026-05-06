@@ -1158,3 +1158,129 @@ fn monorepo_changelog_default_template() -> Result<()> {
 
     Ok(())
 }
+
+#[sealed_test]
+fn changelog_with_version_commits() -> Result<()> {
+    // Arrange
+    git_init()?;
+    let today = Utc::now().date_naive();
+
+    let sha_1 = git_commit_short("chore: init")?;
+    let sha_2 = git_commit_short("feat: some feature")?;
+
+    Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("bump")
+        .arg("--auto")
+        .assert()
+        .success();
+    let sha_3 = run_fun!(git log -n 1 --format=%h)?;
+
+    let sha_4 = git_commit_short("fix: some bugfix")?;
+
+    Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("bump")
+        .arg("--auto")
+        .assert()
+        .success();
+    let sha_5 = run_fun!(git log -n 1 --format=%h)?;
+
+    // Act
+    let result = Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("changelog")
+        // Assert
+        .assert()
+        .success();
+
+    let changelog = String::from_utf8_lossy(&result.get_output().stdout);
+    assert_eq!(
+        changelog,
+        formatdoc! {
+            r#"
+            ## 0.1.1 - {today}
+            #### Bug Fixes
+            - some bugfix - ({sha_4}) - Tom
+            #### Miscellaneous Chores
+            - (**version**) 0.1.1 - ({sha_5}) - Tom
+
+            - - -
+
+            ## 0.1.0 - {today}
+            #### Features
+            - some feature - ({sha_2}) - Tom
+            #### Miscellaneous Chores
+            - (**version**) 0.1.0 - ({sha_3}) - Tom
+            - init - ({sha_1}) - Tom
+
+
+            "#,
+            today = today,
+            sha_1 = sha_1,
+            sha_2 = sha_2,
+            sha_3 = sha_3,
+            sha_4 = sha_4,
+            sha_5 = sha_5,
+        }
+    );
+
+    Ok(())
+}
+
+#[sealed_test]
+fn changelog_without_version_commits() -> Result<()> {
+    // Arrange
+    git_init()?;
+    let today = Utc::now().date_naive();
+
+    git_add("changelog.omit_version_commit = true", "cog.toml")?;
+    let sha_1 = git_commit_short("chore: init")?;
+    let sha_2 = git_commit_short("feat: some feature")?;
+
+    Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("bump")
+        .arg("--auto")
+        .assert()
+        .success();
+
+    let sha_3 = git_commit_short("fix: some bugfix")?;
+
+    Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("bump")
+        .arg("--auto")
+        .assert()
+        .success();
+
+    // Act
+    let result = Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("changelog")
+        // Assert
+        .assert()
+        .success();
+
+    let changelog = String::from_utf8_lossy(&result.get_output().stdout);
+    assert_eq!(
+        changelog,
+        formatdoc! {
+            r#"
+            ## 0.1.1 - {today}
+            #### Bug Fixes
+            - some bugfix - ({sha_3}) - Tom
+
+            - - -
+
+            ## 0.1.0 - {today}
+            #### Features
+            - some feature - ({sha_2}) - Tom
+            #### Miscellaneous Chores
+            - init - ({sha_1}) - Tom
+
+
+            "#,
+            today = today,
+            sha_1 = sha_1,
+            sha_2 = sha_2,
+            sha_3 = sha_3,
+        }
+    );
+
+    Ok(())
+}

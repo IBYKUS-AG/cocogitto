@@ -59,6 +59,9 @@ impl TryFrom<CommitIter<'_>> for Release {
                 .unwrap_or_else(|| Utc::now().naive_utc()),
                 commits: release
                     .iter()
+                    .filter(|(oid_of, _)| {
+                        !SETTINGS.changelog.omit_version_commit || !matches!(oid_of, OidOf::Tag(_))
+                    })
                     .filter(|(_commit, commit)| commit.message().is_some())
                     .filter(|(_commit, commit)| {
                         if SETTINGS.ignore_merge_commits {
