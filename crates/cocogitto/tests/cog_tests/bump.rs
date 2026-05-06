@@ -1447,3 +1447,40 @@ fn no_bump_with_only_chore_monorepo() -> Result<()> {
 
     Ok(())
 }
+
+#[sealed_test]
+fn bump_non_public_package_only() -> Result<()> {
+    // Arrange
+    git_init()?;
+    git_add(
+        indoc! {
+            r#"
+            [monorepo.packages.pkg]
+            path = "pkg"
+            public_api = false
+            "#
+        },
+        "cog.toml",
+    )?;
+    git_commit("chore: init")?;
+    git_tag("1.0.0")?;
+    git_tag("pkg-1.0.0")?;
+
+    git_add(".", "pkg/file")?;
+    git_commit("feat(pkg): package feature")?;
+    git_add(".", "global")?;
+    git_commit("chore: global chore")?;
+
+    // Act
+    Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("bump")
+        .arg("--auto")
+        // Assert
+        .assert()
+        .success();
+
+    assert_tag_exists("pkg-1.1.0")?;
+    assert_tag_does_not_exist("1.1.0")?;
+
+    Ok(())
+}

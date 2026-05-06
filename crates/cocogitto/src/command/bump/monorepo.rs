@@ -156,7 +156,7 @@ impl CocoGitto {
             return Ok(());
         }
 
-        let tag = Tag::create(bump_res.next.version, None);
+        let tag = Tag::create(bump_res.next.version.clone(), None);
 
         if opts.dry_run {
             for bump in bumps {
@@ -258,15 +258,17 @@ impl CocoGitto {
             }
         }
 
-        if let Some(msg_tmpl) = opts.annotated {
-            let mut context = tera::Context::new();
-            context.insert("latest", &bump_res.current.version.to_string());
-            context.insert("version", &tag.version.to_string());
-            let msg = Tera::one_off(&msg_tmpl, &context, false)?;
-            self.repository
-                .create_annotated_tag(&tag, &msg, disable_bump_commit)?;
-        } else {
-            self.repository.create_tag(&tag, disable_bump_commit)?;
+        if !bump_res.no_change() || bump_res.current.oid.is_none() {
+            if let Some(msg_tmpl) = opts.annotated {
+                let mut context = tera::Context::new();
+                context.insert("latest", &bump_res.current.version.to_string());
+                context.insert("version", &tag.version.to_string());
+                let msg = Tera::one_off(&msg_tmpl, &context, false)?;
+                self.repository
+                    .create_annotated_tag(&tag, &msg, disable_bump_commit)?;
+            } else {
+                self.repository.create_tag(&tag, disable_bump_commit)?;
+            }
         }
 
         // Run per package post hooks
