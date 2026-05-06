@@ -1,6 +1,7 @@
 use crate::command::bump::prerelease::increment_prerelease;
 use crate::conventional::changelog::release::Release;
 use crate::conventional::commit::Commit;
+use crate::conventional::version::Increment;
 use crate::git::error::TagError;
 use crate::git::oid::OidOf;
 
@@ -106,6 +107,29 @@ impl<'a> BumpOptions<'a> {
                 next.version.major = pre_release.version.major;
                 next.version.minor = pre_release.version.minor;
                 next.version.patch = pre_release.version.patch;
+            }
+
+            if let Some(package) = package {
+                if self.pre_release.is_some() {
+                    let commits: Vec<_> = repository
+                        .get_commit_range_for_package(
+                            &format!("{}..", pre_release.oid.unwrap()),
+                            package,
+                        )?
+                        .iter_commits()
+                        .map(|commit| Commit::from_git_commit(commit))
+                        .filter_map(Result::ok)
+                        .collect();
+                    if let Ok(Increment::NoBump) | Err(ConvBumpError::NoCommitFound) =
+                        pre_release.version_increment_from_commit_history(&commits)
+                    {
+                        return Ok(BumpResult {
+                            next: current.strip_metadata(),
+                            current,
+                            had_commits: false,
+                        });
+                    }
+                }
             }
         }
 

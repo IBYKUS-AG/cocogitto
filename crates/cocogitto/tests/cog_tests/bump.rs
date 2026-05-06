@@ -1484,3 +1484,64 @@ fn bump_non_public_package_only() -> Result<()> {
 
     Ok(())
 }
+
+#[sealed_test]
+fn skip_emtpy_package_pre_releases() -> Result<()> {
+    // Arrange
+    git_init()?;
+    git_add(
+        indoc! {
+            r#"
+            monorepo_allow_global_only = true
+
+            [monorepo.packages.pkg]
+            path = "pkg"
+            "#
+        },
+        "cog.toml",
+    )?;
+    git_commit("chore: init")?;
+    git_tag("1.0.0")?;
+    git_tag("pkg-1.0.0")?;
+
+    git_add(".", "pkg/file")?;
+    git_commit("feat(pkg): package feature")?;
+    Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("bump")
+        .arg("--auto")
+        .arg("--pre")
+        .arg("alpha.1")
+        .assert()
+        .success();
+
+    assert_tag_exists("pkg-1.1.0-alpha.1")?;
+    assert_tag_exists("1.1.0-alpha.1")?;
+
+    git_add(".", "file")?;
+    git_commit("feat: global feature")?;
+
+    // Act
+    Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("bump")
+        .arg("--auto")
+        .arg("--pre")
+        .arg("alpha.2")
+        .assert()
+        .success();
+
+    // Assert
+    assert_tag_does_not_exist("pkg-1.1.0-alpha.2")?;
+    assert_tag_exists("1.1.0-alpha.2")?;
+
+    // Also check full release isn't affected
+
+    Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("bump")
+        .arg("--auto")
+        .assert()
+        .success();
+    assert_tag_exists("pkg-1.1.0")?;
+    assert_tag_exists("1.1.0")?;
+
+    Ok(())
+}
