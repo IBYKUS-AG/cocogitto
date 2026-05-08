@@ -18,6 +18,7 @@ use crate::BumpError;
 use crate::{CocoGitto, COMMITS_METADATA, SETTINGS};
 use anyhow::Result;
 use anyhow::{bail, ensure, Context};
+use chrono::Utc;
 use colored::Colorize;
 use conventional_commit_parser::commit::CommitType;
 use globset::Glob;
@@ -338,8 +339,7 @@ impl CocoGitto {
         mut allow_empty: bool,
     ) -> Result<Release> {
         let version = OidOf::Tag(bump_res.next.clone());
-        allow_empty |=
-            bump_res.current_prerelease.is_some() && bump_res.next.version.pre.is_empty();
+        allow_empty |= bump_res.current_prerelease.is_some();
         let release = match Release::try_from(commit_range) {
             Ok(mut release) => {
                 release.version = version;
@@ -353,7 +353,7 @@ impl CocoGitto {
                 Release {
                     version,
                     from: OidOf::Tag(from.clone()),
-                    date: Default::default(),
+                    date: Utc::now().naive_local(),
                     commits: vec![],
                     previous: None,
                 }

@@ -9,20 +9,30 @@ use std::fmt::Formatter;
 
 #[derive(Debug, Clone)]
 pub enum RevSpecPattern2 {
-    Range { from: OidOf, to: OidOf },
-    AtTag { from: OidOf, to: OidOf },
+    Range {
+        from: Option<OidOf>,
+        to: Option<OidOf>,
+    },
+    AtTag {
+        from: Option<OidOf>,
+        to: Option<OidOf>,
+    },
 }
 
 impl RevSpecPattern2 {
-    pub fn from(&self) -> &Oid {
+    pub fn from(&self) -> Option<Oid> {
         match self {
-            RevSpecPattern2::AtTag { from, .. } | RevSpecPattern2::Range { from, .. } => from.oid(),
+            RevSpecPattern2::AtTag { from, .. } | RevSpecPattern2::Range { from, .. } => {
+                from.as_ref().map(|from| *from.oid())
+            }
         }
     }
 
-    pub fn to(&self) -> &Oid {
+    pub fn to(&self) -> Option<Oid> {
         match self {
-            RevSpecPattern2::AtTag { to, .. } | RevSpecPattern2::Range { to, .. } => to.oid(),
+            RevSpecPattern2::AtTag { to, .. } | RevSpecPattern2::Range { to, .. } => {
+                to.as_ref().map(|to| *to.oid())
+            }
         }
     }
 }
@@ -30,30 +40,20 @@ impl RevSpecPattern2 {
 impl Repository {
     pub(super) fn revspec_from_str(&self, s: &str) -> Result<RevSpecPattern2, Git2Error> {
         if let Some((from, to)) = s.split_once("..") {
-            let from = if from.is_empty() {
-                OidOf::Other(self.get_first_commit()?)
-            } else {
-                self.resolve_oid_of(from)?
-            };
-
-            let to = if to.is_empty() {
-                OidOf::Head(self.get_head_commit_oid()?)
-            } else {
-                self.resolve_oid_of(to)?
-            };
+            let from = (!from.is_empty())
+                .then(|| self.resolve_oid_of(from))
+                .transpose()?;
+            let to = (!to.is_empty())
+                .then(|| self.resolve_oid_of(to))
+                .transpose()?;
 
             Ok(RevSpecPattern2::Range { from, to })
         } else if let Ok(tag) = Tag::from_str(s, None) {
             let previous = self.get_previous_tag(&tag)?.map(OidOf::Tag);
 
-            let previous = match previous {
-                None => OidOf::Other(self.get_first_commit()?),
-                Some(previous) => previous,
-            };
-
             Ok(RevSpecPattern2::AtTag {
                 from: previous,
-                to: self.resolve_oid_of(s)?,
+                to: Some(self.resolve_oid_of(s)?),
             })
         } else {
             Err(Git2Error::InvalidCommitRangePattern(s.to_string()))
@@ -102,11 +102,15 @@ impl Repository {
 
 impl fmt::Display for RevSpecPattern2 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            RevSpecPattern2::AtTag { from, to } | RevSpecPattern2::Range { from, to } => {
-                write!(f, "{from}..{to}")
-            }
+        let (RevSpecPattern2::AtTag { from, to } | RevSpecPattern2::Range { from, to }) = self;
+        if let Some(from) = from {
+            from.fmt(f)?;
         }
+        f.write_str("..")?;
+        if let Some(to) = to {
+            to.fmt(f)?;
+        }
+        Ok(())
     }
 }
 

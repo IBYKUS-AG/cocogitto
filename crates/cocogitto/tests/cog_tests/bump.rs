@@ -5,7 +5,7 @@ use crate::helpers::*;
 use anyhow::Result;
 use assert_cmd::prelude::*;
 use chrono::{NaiveDate, Utc};
-use cmd_lib::{run_cmd, run_fun};
+use cmd_lib::run_cmd;
 use cocogitto::settings::Settings;
 use indoc::{formatdoc, indoc};
 use sealed_test::prelude::*;
@@ -1640,12 +1640,6 @@ fn bump_changelog_allow_empty_after_prerelease() -> Result<()> {
     // Arrange & Act
     let (today, sha_init, sha_fixes) = init_bump_changelog_tests(true)?;
     let [sha_fix_1, sha_fix_2, sha_fix_3] = sha_fixes.try_into().unwrap();
-    let sha_beta_3 = run_fun!(git rev-parse --short 1.0.1-beta.3)?;
-
-    // NOTE: This test is currently intentionally wrong
-    // in the generated changelog, the entry for 1.0.1 should be empty
-    // as Repository::revwalk() currently never returns an empty CommitIter,
-    // this bug is too difficult to work around at the moment
 
     // Assert
     let changelog = std::fs::read_to_string("CHANGELOG.md")?;
@@ -1657,8 +1651,6 @@ fn bump_changelog_allow_empty_after_prerelease() -> Result<()> {
             
             - - -
             ## 1.0.1 - {today}
-            #### Miscellaneous Chores
-            - (**version**) 1.0.1-beta.3 - ({sha_beta_3}) - Tom
 
             - - -
 
@@ -1692,7 +1684,6 @@ fn bump_changelog_allow_empty_after_prerelease() -> Result<()> {
             sha_fix_1 = sha_fix_1,
             sha_fix_2 = sha_fix_2,
             sha_fix_3 = sha_fix_3,
-            sha_beta_3 = sha_beta_3,
         }
     );
 

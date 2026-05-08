@@ -101,10 +101,6 @@ impl Repository {
         index.write().map_err(Git2Error::GitAddError)
     }
 
-    pub(crate) fn get_head_commit_oid(&self) -> Result<Oid, Git2Error> {
-        self.get_head_commit().map(|commit| commit.id())
-    }
-
     pub(crate) fn get_head_commit(&self) -> Result<Git2Commit<'_>, Git2Error> {
         let head_ref = self.0.head();
         match head_ref {
@@ -195,38 +191,6 @@ mod test {
         let expected_canonical = expected_dir.canonicalize()?;
         assert_that!(root_dir).is_equal_to(Some(expected_canonical));
 
-        Ok(())
-    }
-
-    #[sealed_test]
-    fn get_repo_head_oid_ok() -> Result<()> {
-        // Arrange
-        let repo = git_init_no_gpg()?;
-
-        run_cmd!(
-            echo changes > file;
-            git add .;
-        )?;
-        let commit_oid = repo.commit("first commit", false, false)?;
-
-        // Act
-        let oid = repo.get_head_commit_oid();
-
-        // Assert
-        assert_that!(oid).is_ok().is_equal_to(commit_oid);
-        Ok(())
-    }
-
-    #[sealed_test]
-    fn get_repo_head_oid_err() -> Result<()> {
-        // Arrange
-        let repo = git_init_no_gpg()?;
-
-        // Act
-        let oid = repo.get_head_commit_oid();
-
-        // Assert
-        assert_that!(oid).is_err();
         Ok(())
     }
 

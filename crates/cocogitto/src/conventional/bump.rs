@@ -152,13 +152,20 @@ impl Tag {
         self
     }
 
-    fn get_version_from_commit_history(&self, repository: &Repository) -> Result<Tag, BumpError> {
-        let changelog_start_oid = repository
-            .get_latest_tag_oid(TagLookUpOptions::default())
-            .ok()
-            .unwrap_or_else(|| repository.get_first_commit().expect("non empty repository"));
+    fn get_revspec_from_tag(repository: &Repository, package: Option<&str>) -> String {
+        let options = package.map(TagLookUpOptions::package).unwrap_or_default();
+        let tag_oid = repository.get_latest_tag_oid(options).ok();
+        if let Some(oid) = tag_oid {
+            format!("{oid}..")
+        } else {
+            "..".to_string()
+        }
+    }
 
-        let commits = repository.revwalk(&format!("{changelog_start_oid}.."))?;
+    fn get_version_from_commit_history(&self, repository: &Repository) -> Result<Tag, BumpError> {
+        let spec = Tag::get_revspec_from_tag(repository, None);
+
+        let commits = repository.revwalk(&spec)?;
 
         let commits: Vec<&Git2Commit> = commits
             .iter_commits()
@@ -187,14 +194,9 @@ impl Tag {
         package: &str,
         repository: &Repository,
     ) -> Result<Tag, BumpError> {
-        let changelog_start_oid = repository
-            .get_latest_package_tag(package)
-            .ok()
-            .and_then(|tag| tag.oid)
-            .unwrap_or_else(|| repository.get_first_commit().expect("non empty repository"));
+        let pattern = Tag::get_revspec_from_tag(repository, Some(package));
 
-        let commits = repository
-            .get_commit_range_for_package(&format!("{changelog_start_oid}.."), package)?;
+        let commits = repository.get_commit_range_for_package(&pattern, package)?;
         let commits: Vec<&Git2Commit> = commits
             .iter_commits()
             .filter(&*FILTER_MERGE_COMMITS)
@@ -221,13 +223,9 @@ impl Tag {
         &self,
         repository: &Repository,
     ) -> Result<Tag, BumpError> {
-        let changelog_start_oid = repository
-            .get_latest_tag_oid(TagLookUpOptions::default())
-            .ok()
-            .unwrap_or_else(|| repository.get_first_commit().expect("non empty repository"));
+        let pattern = Tag::get_revspec_from_tag(repository, None);
 
-        let commits =
-            repository.get_commit_range_for_monorepo_global(&format!("{changelog_start_oid}.."))?;
+        let commits = repository.get_commit_range_for_monorepo_global(&pattern)?;
 
         let commits: Vec<&Git2Commit> = commits
             .iter_commits()
