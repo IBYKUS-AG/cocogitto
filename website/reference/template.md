@@ -98,7 +98,7 @@ Then use, for example:
     * **Description:** is the commit marked as a breaking change
     * **Nullable:** `false`
 
-- `footer`:
+- `footers`:
     * **Type:** [`Array<Footer>`](/reference/template.html#footer)
     * **Description:** the conventional commit footers
     * **Nullable:** `false`
