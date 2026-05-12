@@ -51,6 +51,7 @@ branch_whitelist = []
 ```toml
 [changelog]
 authors = []
+omit_version_commit = false
 owner = "null"
 package_template = "null"
 path = "CHANGELOG.md"
@@ -125,7 +126,7 @@ ignore_fixup_commits = false
 ```
 
 ## `ignore_merge_commits`
-- **Description :** A list of glob patterns to allow bumping only on matching branches.
+- **Description :** Silently ignore merge commits
 - **Type :** `Boolean`
 - **Default :**
 ```toml
@@ -134,6 +135,14 @@ ignore_merge_commits = false
 
 ## `monorepo`
 - **Description :** Monorepo configuration.
+
+## `monorepo_allow_global_only`
+- **Description :** Allow versions bumps with only global changes in monorepos.
+- **Type :** `Boolean`
+- **Default :**
+```toml
+monorepo_allow_global_only = false
+```
 
 ## `monorepo_version_separator`
 - **Description :** Specify the version separator character for mono-repository package's tags.
@@ -287,6 +296,14 @@ pre_bump_hooks = []
 authors = []
 ```
 ref #/$defs/AuthorSetting
+
+### `omit_version_commit`
+- **Description :** Omit version commits from changelogs
+- **Type :** `Boolean`
+- **Default :**
+```toml
+omit_version_commit = false
+```
 
 ### `owner`
 - **Description :** Repository owner/organization name

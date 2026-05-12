@@ -116,7 +116,7 @@ pub struct MonorepoConfig {
 pub struct Settings {
     /// Whether to only consider commits since the latest SemVer tag.
     pub from_latest_tag: bool,
-    /// A list of glob patterns to allow bumping only on matching branches.
+    /// Silently ignore merge commits
     pub ignore_merge_commits: bool,
     /// Silently ignore fixup commits
     pub ignore_fixup_commits: bool,
