@@ -3,7 +3,7 @@ use crate::settings::MonoRepoPackage;
 use crate::SETTINGS;
 
 use git2::Commit;
-use globset::{Candidate, GlobBuilder, GlobSet, GlobSetBuilder};
+use globset::{Candidate, Glob, GlobBuilder, GlobSet, GlobSetBuilder};
 use once_cell::sync::Lazy;
 use std::{collections::HashMap, path::Path};
 
@@ -30,36 +30,37 @@ impl PackagePathFilter {
     fn new(package_path: &str, include_paths: &[String], exclude_paths: &[String]) -> Self {
         let include = {
             let mut builder = GlobSetBuilder::new();
-            builder.add(
-                GlobBuilder::new(format!("{package_path}/**").as_str())
-                    .literal_separator(true)
-                    .build()
-                    .expect("glob should be valid"),
-            );
+            builder.add(Self::build_glob(package_path, true));
             for include in include_paths {
-                builder.add(
-                    GlobBuilder::new(include)
-                        .literal_separator(true)
-                        .build()
-                        .expect("glob should be valid"),
-                );
+                builder.add(Self::build_glob(include, false));
             }
             builder.build().expect("valid globset")
         };
         let exclude = {
             let mut builder = GlobSetBuilder::new();
             for exclude in exclude_paths {
-                builder.add(
-                    GlobBuilder::new(exclude)
-                        .literal_separator(true)
-                        .build()
-                        .expect("glob should be valid"),
-                );
+                builder.add(Self::build_glob(exclude, false));
             }
             builder.build().expect("valid globset")
         };
 
         PackagePathFilter { include, exclude }
+    }
+
+    fn build_glob(pattern: &str, is_dir: bool) -> Glob {
+        // https://github.com/cocogitto/cocogitto/issues/544
+        let glob = pattern.strip_prefix("./").unwrap_or(pattern);
+        // https://github.com/cocogitto/cocogitto/issues/462
+        let glob = glob.strip_suffix("/").unwrap_or(glob);
+        let glob = if is_dir || pattern.ends_with("/") {
+            format!("{glob}/**")
+        } else {
+            glob.to_string()
+        };
+        GlobBuilder::new(&glob)
+            .literal_separator(true)
+            .build()
+            .expect("glob should be valid")
     }
 }
 
@@ -108,5 +109,76 @@ impl Repository {
             delta.old_file().path().is_some_and(&predicate)
                 || delta.new_file().path().is_some_and(&predicate)
         }))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn package_filter_basic() {
+        let filter = PackagePathFilter::new("dir", &[], &[]);
+        assert!(filter.is_match("dir/file"));
+    }
+
+    #[test]
+    fn package_filter_include_file() {
+        let filter = PackagePathFilter::new("dir", &["file".to_string()], &[]);
+        assert!(filter.is_match("file"))
+    }
+
+    #[test]
+    fn package_filter_include_dir() {
+        let filter = PackagePathFilter::new("dir", &["other/**".to_string()], &[]);
+        assert!(filter.is_match("other/file"))
+    }
+
+    #[test]
+    fn package_filter_exclude_file() {
+        let filter = PackagePathFilter::new("dir", &[], &["dir/file".to_string()]);
+        assert!(!filter.is_match("dir/file"))
+    }
+
+    #[test]
+    fn package_filter_exclude_dir() {
+        let filter = PackagePathFilter::new("dir", &[], &["dir/test/**".to_string()]);
+        assert!(!filter.is_match("dir/test/file"))
+    }
+
+    #[test]
+    fn package_filter_trailing_slash() {
+        let filter = PackagePathFilter::new("dir/", &[], &[]);
+        assert!(filter.is_match("dir/file"));
+    }
+
+    #[test]
+    fn package_filter_include_trailing_slash() {
+        let filter = PackagePathFilter::new("dir", &["other/".to_string()], &[]);
+        assert!(filter.is_match("other/file"));
+    }
+
+    #[test]
+    fn package_filter_exclude_trailing_slash() {
+        let filter = PackagePathFilter::new("dir", &[], &["dir/test/".to_string()]);
+        assert!(!filter.is_match("dir/test/file"));
+    }
+
+    #[test]
+    fn package_filter_leading_dotslash() {
+        let filter = PackagePathFilter::new("./dir", &[], &[]);
+        assert!(filter.is_match("dir/file"));
+    }
+
+    #[test]
+    fn package_filter_include_leading_dotslash() {
+        let filter = PackagePathFilter::new("dir", &["./other/**".to_string()], &[]);
+        assert!(filter.is_match("other/file"));
+    }
+
+    #[test]
+    fn package_filter_exclude_leading_dotslash() {
+        let filter = PackagePathFilter::new("dir", &[], &["./dir/test/**".to_string()]);
+        assert!(!filter.is_match("dir/test/file"));
     }
 }
