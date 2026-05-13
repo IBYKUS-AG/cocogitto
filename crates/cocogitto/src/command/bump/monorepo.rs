@@ -428,6 +428,34 @@ impl CocoGitto {
         Ok(packages)
     }
 
+    fn get_package_order_map(&self) -> Option<HashMap<String, usize>> {
+        use cocogitto_dependency_resolver::DepGraphResolver;
+
+        let resolver = match SETTINGS.monorepo.as_ref()?.resolver.as_ref()?.as_str() {
+            "Cargo" => DepGraphResolver::Cargo,
+            "Maven" => DepGraphResolver::Maven,
+            "Npm" => DepGraphResolver::Npm,
+            _ => DepGraphResolver::Cargo, // Default fallback
+        };
+
+        let repo_path = self.repository.get_repo_dir()?;
+        // Try common manifest files
+        let manifest_path = ["Cargo.toml", "pom.xml", "package.json"]
+            .iter()
+            .map(|manifest| repo_path.join(manifest))
+            .find(|manifest| manifest.exists())?;
+
+        let dependencies = resolver.topological_sort(manifest_path);
+
+        Some(
+            dependencies
+                .into_iter()
+                .enumerate()
+                .map(|(i, name)| (name, i))
+                .collect(),
+        )
+    }
+
     fn get_packages_bumps(&self, opts: &BumpOptions) -> Result<Vec<PackageBumpData>> {
         let mut package_bumps = vec![];
         let mut packages: Vec<(&String, &MonoRepoPackage)> = SETTINGS
@@ -436,59 +464,14 @@ impl CocoGitto {
             .map(|m| m.packages.iter().collect())
             .unwrap_or_default();
 
-        if let Some(monorepo) = &SETTINGS.monorepo {
-            if monorepo.resolver.is_some() {
-                use cocogitto_dependency_resolver::DepGraphResolver;
-
-                let resolver_name = monorepo.resolver.as_deref().unwrap_or("Cargo");
-
-                let resolver = match resolver_name {
-                    "Cargo" => DepGraphResolver::Cargo,
-                    "Maven" => DepGraphResolver::Maven,
-                    "Npm" => DepGraphResolver::Npm,
-                    _ => DepGraphResolver::Cargo, // Default fallback
-                };
-
-                let manifest_path = self.repository.get_repo_dir().and_then(|repo_path| {
-                    // Try common manifest files
-                    let cargo_toml = repo_path.join("Cargo.toml");
-                    if cargo_toml.exists() {
-                        return Some(cargo_toml);
-                    }
-
-                    let pom_xml = repo_path.join("pom.xml");
-                    if pom_xml.exists() {
-                        return Some(pom_xml);
-                    }
-
-                    let package_json = repo_path.join("package.json");
-                    if package_json.exists() {
-                        return Some(package_json);
-                    }
-
-                    None
-                });
-
-                if let Some(manifest_path) = manifest_path {
-                    let dependencies =
-                        resolver.topological_sort(manifest_path.to_str().unwrap_or(""));
-
-                    let order_map: HashMap<&str, usize> = dependencies
-                        .iter()
-                        .enumerate()
-                        .map(|(i, name)| (name.as_str(), i))
-                        .collect();
-
-                    packages.sort_by(|a, b| {
-                        let a_order = order_map.get(a.0.as_str()).unwrap_or(&usize::MAX);
-                        let b_order = order_map.get(b.0.as_str()).unwrap_or(&usize::MAX);
-                        a_order.cmp(b_order)
-                    });
-                }
-            }
-        } else {
-            packages.sort_by(|a, b| a.1.bump_order.cmp(&b.1.bump_order));
-        }
+        let order_map = self.get_package_order_map().unwrap_or_default();
+        packages.sort_by(|a, b| {
+            let a_order = order_map.get(a.0).unwrap_or(&usize::MAX);
+            let b_order = order_map.get(b.0).unwrap_or(&usize::MAX);
+            a_order
+                .cmp(b_order)
+                .then(a.1.bump_order.cmp(&b.1.bump_order))
+        });
 
         for (package_name, package) in packages {
             let increment = if opts.increment != IncrementCommand::Auto {
