@@ -11,6 +11,8 @@ use sealed_test::prelude::*;
 use speculoos::prelude::*;
 use std::path::Path;
 
+mod changelog;
+
 #[sealed_test]
 fn auto_bump_from_start_ok() -> Result<()> {
     git_init()?;
@@ -902,34 +904,6 @@ fn disable_commit_creation_with_pre_bump_hooks_standard_ok() -> Result<()> {
         .assert()
         .success()
         .stdout(indoc!("A  CHANGELOG.md\nA  pre_bump_file\n"));
-
-    Ok(())
-}
-
-#[sealed_test]
-fn override_default_commit() -> Result<()> {
-    git_init()?;
-
-    git_add(
-        indoc! {
-          r#"[commit_types]
-          feat = { changelog_title = "🌟 Features" }
-          fix = { changelog_title = "🐛 Bug Fixes" }"#
-        },
-        "cog.toml",
-    )?;
-
-    git_commit("chore: init")?;
-    git_commit("feat: feature")?;
-    git_commit("fix: fix")?;
-
-    Command::new(assert_cmd::cargo_bin!("cog"))
-        .arg("bump")
-        .arg("--auto")
-        .assert()
-        .success();
-
-    assert_tag_exists("0.1.0")?;
 
     Ok(())
 }
