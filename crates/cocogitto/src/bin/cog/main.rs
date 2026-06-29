@@ -346,6 +346,15 @@ enum Command {
         /// bump the global version for monorepos. Useful to bump to version 1.0.0.
         #[arg(long, conflicts_with = "auto")]
         include_packages: bool,
+
+        /// Only bump packages with changes since the last prerelease.
+        ///
+        /// This is only relevant when creating a prerelase from a prerelease.
+        /// If the option is set, only packages which have changed since the last prerelease
+        /// will receive a bump. Otherwise, all packages with changes since the last full version
+        /// receive a bump.
+        #[arg(long)]
+        changed_packages: bool,
     },
 
     /// Install cog config files
@@ -474,6 +483,7 @@ fn main() -> Result<()> {
             skip_untracked,
             disable_bump_commit,
             include_packages,
+            changed_packages,
         } => {
             let mut cocogitto = CocoGitto::get()?;
             let is_monorepo = SETTINGS
@@ -550,6 +560,7 @@ fn main() -> Result<()> {
                             skip_untracked,
                             disable_bump_commit,
                             include_packages,
+                            changed_packages,
                         };
 
                         cocogitto.create_monorepo_version(opts)?
@@ -568,6 +579,7 @@ fn main() -> Result<()> {
                     skip_untracked,
                     disable_bump_commit,
                     include_packages,
+                    changed_packages,
                 };
                 cocogitto.create_version(opts)?
             }

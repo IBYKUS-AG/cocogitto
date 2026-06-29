@@ -363,6 +363,7 @@ fn ordered_package_bump() -> Result<()> {
         skip_untracked: false,
         disable_bump_commit: false,
         include_packages: false,
+        changed_packages: true,
     })?;
 
     // Assert

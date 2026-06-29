@@ -48,6 +48,7 @@ pub struct BumpOptions<'a> {
     pub skip_untracked: bool,
     pub disable_bump_commit: bool,
     pub include_packages: bool,
+    pub changed_packages: bool,
 }
 
 #[derive(Default)]
@@ -114,26 +115,31 @@ impl<'a> BumpOptions<'a> {
                 next.version.patch = pre_release.version.patch;
             }
 
-            if let Some(package) = package {
-                if self.pre_release.is_some() {
-                    let commits: Vec<_> = repository
-                        .get_commit_range_for_package(
-                            &format!("{}..", pre_release.oid.unwrap()),
-                            package,
-                        )?
-                        .iter_commits()
-                        .map(|commit| Commit::from_git_commit(commit))
-                        .filter_map(Result::ok)
-                        .collect();
-                    if let Ok(Increment::NoBump) | Err(ConvBumpError::NoCommitFound) =
-                        pre_release.version_increment_from_commit_history(&commits)
-                    {
-                        return Ok(BumpResult {
-                            next: Tag::create(current.version.clone(), Some(package.to_string())),
-                            current_prerelease,
-                            current,
-                            had_commits: false,
-                        });
+            if self.changed_packages {
+                if let Some(package) = package {
+                    if self.pre_release.is_some() {
+                        let commits: Vec<_> = repository
+                            .get_commit_range_for_package(
+                                &format!("{}..", pre_release.oid.unwrap()),
+                                package,
+                            )?
+                            .iter_commits()
+                            .map(|commit| Commit::from_git_commit(commit))
+                            .filter_map(Result::ok)
+                            .collect();
+                        if let Ok(Increment::NoBump) | Err(ConvBumpError::NoCommitFound) =
+                            pre_release.version_increment_from_commit_history(&commits)
+                        {
+                            return Ok(BumpResult {
+                                next: Tag::create(
+                                    current.version.clone(),
+                                    Some(package.to_string()),
+                                ),
+                                current_prerelease,
+                                current,
+                                had_commits: false,
+                            });
+                        }
                     }
                 }
             }
@@ -189,6 +195,7 @@ impl<'a> PackageBumpOptions<'a> {
             skip_untracked: self.skip_untracked,
             disable_bump_commit: self.disable_bump_commit,
             include_packages: false,
+            changed_packages: false,
         }
     }
 }

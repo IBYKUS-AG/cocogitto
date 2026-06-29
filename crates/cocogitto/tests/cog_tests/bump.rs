@@ -1521,10 +1521,12 @@ fn skip_emtpy_package_pre_releases() -> Result<()> {
     git_add(".", "file")?;
     git_commit("feat: global feature")?;
 
-    // Act
+    // Act: with --changed-packages
+    // small bump: only global should receive version as package didn't change since last prerelease
     Command::new(assert_cmd::cargo_bin!("cog"))
         .arg("bump")
         .arg("--auto")
+        .arg("--changed-packages")
         .arg("--pre")
         .arg("alpha.2")
         .assert()
@@ -1533,6 +1535,20 @@ fn skip_emtpy_package_pre_releases() -> Result<()> {
     // Assert
     assert_tag_does_not_exist("pkg-1.1.0-alpha.2")?;
     assert_tag_exists("1.1.0-alpha.2")?;
+
+    // Act: without --changed-packages
+    // full bump: package changed since full release -> should receive bump
+    Command::new(assert_cmd::cargo_bin!("cog"))
+        .arg("bump")
+        .arg("--auto")
+        .arg("--pre")
+        .arg("rc.1")
+        .assert()
+        .success();
+
+    // Assert
+    assert_tag_exists("pkg-1.1.0-rc.1")?;
+    assert_tag_exists("1.1.0-rc.1")?;
 
     // Also check full release isn't affected
 
